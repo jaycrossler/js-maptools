@@ -68,6 +68,7 @@
             var overlayUsng = L.tileLayer.wms("http://egeoint.nrlssc.navy.mil/arcgis/services/usng/USNG_93/MapServer/WMSServer", {
                 layers: '47,49,51,53',
                 format: 'image/png',
+                maxZoom: 20,
                 transparent: true,
                 attribution: "USNG Cells"
             }).addTo(map);
@@ -114,7 +115,7 @@
             };
 
             info.update = function (latlng) {
-                var location_text = map_example.convert_ll_to_string(latlng);
+                var location_text = map_example.convert_ll_to_string(latlng, map.zoom, map);
 
                 this._div.innerHTML = '<h4>Location</h4>' +  (location_text ?
                     '<b>' + location_text + '</b>'
@@ -130,13 +131,15 @@
             info.addTo(map);
         };
         //=======================================================
-        map_example.convert_ll_to_string=function(latlng, zoom){
+        var polygon;
+        map_example.convert_ll_to_string=function(latlng, zoom, map){
+            //TODO: Move most of this to maptools
             var textArray = [];
             var text, lat, lng, in_bounds_us, in_bounds_world, state_hover, country_hover;
 
-            if (latlng && latlng.lat && (latlng.lng || latlng.lon)) {
+            if (latlng) {
                 lat = latlng.lat;
-                lng = latlng.lng || latlng.lon;
+                lng = latlng.lng || latlng.lon || 0;
 
                 //If MapTools library is loaded
                 if (typeof maptools!="undefined" && maptools.inUSBounds) {
@@ -150,11 +153,24 @@
                     in_bounds_world = maptools.inWorldBounds(lat, lng);
 
                     var ngText = '';
+                    var usngCoords = maptools.latLongToUsng(lat, lng, 5);
+                    var usngText = usngCoords.usngString;
+
+                    var box = usngCoords.mgrs_bounds;
+                    if (polygon) map.removeLayer(polygon);
+                    polygon = L.polygon([
+                        [box.tl.lat, box.tl.lon],
+                        [box.tr.lat, box.tr.lon],
+                        [box.br.lat, box.br.lon],
+                        [box.bl.lat, box.bl.lon]
+                    ]).addTo(map);
+
+
                     if (in_bounds_us) {
-                        ngText += "USNG: "+maptools.latLongToUsng(lat, lng, 3);
+                        ngText += "USNG: "+usngText;
                         state_hover = maptools.inWhichUSStateBounds(lat, lng)
                     } else {
-                        ngText += "MGRS: "+maptools.latLongToMgrs(latlng.lat, latlng.lng,3);
+                        ngText += "MGRS: "+usngText;
                     }
                     country_hover = maptools.inWhichCountryBounds(lat, lng);
 
