@@ -12,7 +12,7 @@
     // Caveat: Does NOT handle above 84N, below 80S
 
     var _m = {
-        VERSION: '0.0.3',
+        VERSION: '0.0.4',
         summary: 'Useful mapping functions for Lat/Lon to USNG/MGRS conversion and state/country details'
     };
 
@@ -33,14 +33,26 @@
         var newLat = getLatLon(lat, lon).lat;
         lon = getLatLon(lat, lon).lon;
         lat = newLat;
-        var top = 49.3457868;
-        var left = -124.7844079;
-        var right = -66.9513812;
-        var bottom = 24.7433195;
 
-        return (bottom <= lat && lat <= top && left <= lon && lon <= right);
+        var is_in_us = false;
+
+        //If gju and country_detailed_polygons libraries are loaded, do a detailed country lookup
+        if (typeof gju!="undefined" && gju.pointInPolygon && _m.COUNTRY_DATA && _m.COUNTRY_US_NUMBER) {
+            var us_data = _m.COUNTRY_DATA[_m.COUNTRY_US_NUMBER];
+            var point_object = {"type":"Point","coordinates":[lon,lat]};
+            is_in_us = gju.pointInPolygon(point_object,us_data);
+
+        } else {
+            //Other libraries not loaded, so use a simple square lookup
+            var top = 49.3457868;
+            var left = -124.7844079;
+            var right = -66.9513812;
+            var bottom = 24.7433195;
+            is_in_us = (bottom <= lat && lat <= top && left <= lon && lon <= right);
+        }
+
+        return is_in_us;
     };
-    //TODO: Exactness: Do better bound checking
 
     _m.correctDegree = function(m) {
         return ((((180+m) % 360) + 360) % 360)-180;
@@ -353,7 +365,6 @@
 
         var EQUATORIAL_RADIUS;
         var ECCENTRICTY_SQUARED;
-        var ECC_PRIME_SQUARED;
         var ECC_SQUARED;
         var IS_NAD83_DATUM = true;  // if false, assumes NAD27 datum
 
