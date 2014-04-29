@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>JS-Maptools Polygon Example</title>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="../frameworks/leaflet/leaflet.css" />
+    <style>
+        body {
+            padding: 0;
+            margin: 0;
+        }
+        html, body, #map {
+            height: 100%;
+        }
+        #map {
+            cursor: crosshair;
+        }
+        .info {
+            padding: 6px 8px;
+            font: 14px/16px Arial, Helvetica, sans-serif;
+            background: white;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+        }
+        .info h4 {
+            margin: 0 0 5px;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+	<div id="map"></div>
+	<button id="changeColor">Rectangle -> Blue</button>
+
+	<script src="../frameworks/leaflet/leaflet.js"></script>
+	<script src="../frameworks/leaflet.draw/Leaflet.draw.js"></script>
+
+	<script src="../frameworks/leaflet.draw/edit/handler/Edit.Poly.js"></script>
+	<script src="../frameworks/leaflet.draw/edit/handler/Edit.SimpleShape.js"></script>
+	<script src="../frameworks/leaflet.draw/edit/handler/Edit.Circle.js"></script>
+	<script src="../frameworks/leaflet.draw/edit/handler/Edit.Rectangle.js"></script>
+
+	<script src="../frameworks/leaflet.draw/draw/handler/Draw.Feature.js"></script>
+	<script src="../frameworks/leaflet.draw/draw/handler/Draw.Polyline.js"></script>
+	<script src="../frameworks/leaflet.draw/draw/handler/Draw.Polygon.js"></script>
+	<script src="../frameworks/leaflet.draw/draw/handler/Draw.SimpleShape.js"></script>
+	<script src="../frameworks/leaflet.draw/draw/handler/Draw.Rectangle.js"></script>
+	<script src="../frameworks/leaflet.draw/draw/handler/Draw.Circle.js"></script>
+	<script src="../frameworks/leaflet.draw/draw/handler/Draw.Marker.js"></script>
+
+    <script src="../frameworks/leaflet.draw/Control.Draw.js"></script>
+	<script src="../frameworks/leaflet.draw/Tooltip.js"></script>
+	<script src="../frameworks/leaflet.draw/Toolbar.js"></script>
+
+	<script src="../frameworks/leaflet.draw/draw/DrawToolbar.js"></script>
+	<script src="../frameworks/leaflet.draw/edit/EditToolbar.js"></script>
+	<script src="../frameworks/leaflet.draw/edit/handler/EditToolbar.Edit.js"></script>
+	<script src="../frameworks/leaflet.draw/edit/handler/EditToolbar.Delete.js"></script>
+    
+	<script src="../frameworks/geojson-js-utils/geojson-utils.js"></script>
+	<script src="../scripts/jsmaptools.js"></script>
+	<script src="../scripts/jsmaptools_polygons.js"></script>
+	<script>
+        //Build a basic class to use
+        var map_example = {};
+
+        //=======================================================
+        map_example.init = function(){
+            //Build the Basic Map and set it's center and zoom level
+            var map = L.map('map').setView([33, -83], 3);
+            map_example.add_map_layers(map);
+            //map_example.add_sample_overlays(map);
+            map_example.add_info_box(map);
+        };
+        //=======================================================
+        map_example.add_map_layers = function(map){
+            //Add base Map Layers
+            var baseMapOSM = L.tileLayer.wms('http://geoint.nrlssc.navy.mil/nrltileserver/wms', {
+                layers: 'OSM_BASEMAP',
+                maxZoom: 18,
+                attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a>, NAIP'
+            }).addTo(map);
+
+            var baseMaps = L.tileLayer.wms('http://geoint.nrlssc.navy.mil/nrltileserver/wms', {
+                layers: 'bluemarble,Landsat7,NAIP,OSM_BASEMAP_OVERLAY',
+                maxZoom: 18,
+                attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a>, NAIP, Landsat7'
+            }).addTo(map);
+
+            var overlayUsng = L.tileLayer.wms("http://egeoint.nrlssc.navy.mil/arcgis/services/usng/USNG_93/MapServer/WMSServer", {
+                layers: '47,49,51,53',
+                format: 'image/png',
+                maxZoom: 20,
+                transparent: true,
+                attribution: "USNG Cells"
+            }).addTo(map);
+
+            var overlaysWeather = L.tileLayer.wms("http://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi", {
+                layers: 'nexrad-n0r-900913',
+                format: 'image/png',
+                transparent: true,
+                attribution: "Weather data © 2012 IEM Nexrad"
+            }).addTo(map);
+
+            //Add Map layer chooser
+            L.control.layers({"OSM":baseMapOSM, "Blended Base Maps":baseMaps}, {"USNG/MGRS Cells":overlayUsng, "Weather":overlaysWeather}).addTo(map);
+
+
+
+            var drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            // Set the title to show on the polygon button
+            L.drawLocal.draw.toolbar.buttons.polygon = 'Draw a sexy polygon!';
+
+            var drawControl = new L.Control.Draw({
+                position: 'topright',
+                draw: {
+                    polyline: {
+                        metric: true
+                    },
+                    polygon: {
+                        allowIntersection: false,
+                        showArea: true,
+                        drawError: {
+                            color: '#b00b00',
+                            timeout: 1000
+                        },
+                        shapeOptions: {
+                            color: '#bada55'
+                        }
+                    },
+                    circle: {
+                        shapeOptions: {
+                            color: '#662d91'
+                        }
+                    },
+                    marker: false
+                },
+                edit: {
+                    featureGroup: drawnItems,
+                    remove: false
+                }
+            });
+            map.addControl(drawControl);
+
+            map.on('draw:created', function (e) {
+                var type = e.layerType,
+                    layer = e.layer;
+
+                if (type === 'marker') {
+                    layer.bindPopup('A popup!');
+                }
+
+                drawnItems.addLayer(layer);
+            });
+
+            map.on('draw:edited', function (e) {
+                var layers = e.layers;
+                var countOfEditedLayers = 0;
+                layers.eachLayer(function(layer) {
+                    countOfEditedLayers++;
+                });
+                console.log("Edited " + countOfEditedLayers + " layers");
+            });
+
+            L.DomUtil.get('changeColor').onclick = function () {
+                drawControl.setDrawingOptions({ rectangle: { shapeOptions: { color: '#004a80' } } });
+            };
+
+
+
+        };
+        //=======================================================
+        map_example.add_sample_overlays = function(map){
+            //Add some markers for testing
+            L.marker([51.5, -0.09]).addTo(map)
+                .bindPopup("<b>Hello world!</b><br />I am a popup.").openPopup();
+
+            L.circle([51.508, -0.11], 500, {
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.5
+            }).addTo(map).bindPopup("I am a circle.");
+
+            L.polygon([
+                [51.509, -0.08],
+                [51.503, -0.06],
+                [51.51, -0.047]
+            ]).addTo(map).bindPopup("I am a polygon.");
+
+        };
+        //=======================================================
+        map_example.add_info_box = function(map){
+            //Add an Info box in top right to show information on area
+            var info = L.control();
+
+            info.onAdd = function (map) {
+                this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
+                this.update();
+                return this._div;
+            };
+
+            info.update = function (latlng) {
+                var location_text = map_example.convert_ll_to_string(latlng, map.zoom, map);
+
+                this._div.innerHTML = '<h4>Location</h4>' +  (location_text ?
+                    '<b>' + location_text + '</b>'
+                    : 'Hover to see location info');
+            };
+
+            function onMapHover(e) {
+                info.update(e.latlng, map.zoom);
+            }
+            map.on('mousemove', onMapHover);
+
+
+            info.addTo(map);
+        };
+        //=======================================================
+        var polygon;
+        map_example.convert_ll_to_string=function(latlng, zoom, map){
+            var text, lat, lng;
+
+            if (latlng) {
+                lat = latlng.lat;
+                lng = latlng.lng || latlng.lon || 0;
+
+                //If MapTools library is loaded
+                if (typeof maptools!="undefined" && maptools.inUSBounds) {
+                    var point_data = maptools.locationInfoString({lat:lat, lng:lng, zoom:zoom, separator:"<br/>", boldTitles:true});
+                    text = point_data.toString();
+
+                    //Draw the USNG cell, and remove an old one if it exists
+                    var box = point_data.usngCoords.mgrs_bounds;
+                    if (map && polygon) map.removeLayer(polygon);
+                    polygon = L.polygon([
+                        [box.tl.lat, box.tl.lon],
+                        [box.tr.lat, box.tr.lon],
+                        [box.br.lat, box.br.lon],
+                        [box.bl.lat, box.bl.lon]
+                    ]).addTo(map);
+
+                } else {
+                    if (lat && lng) {
+                        var textArray = [];
+                        textArray.push("Lat: " + lat.toFixed(6));
+                        textArray.push("Lon: " + lng.toFixed(6));
+                        if (zoom) textArray.push("Zoom: " + zoom);
+                        text = textArray.join("<br/>");
+                    } else {
+                        text = "";
+                    }
+                }
+
+            } else {
+                text = latlng ? latlng.toString() : "";
+            }
+            return text;
+        };
+        //=======================================================
+
+        map_example.init();
+
+	</script>
+</body>
+</html>
