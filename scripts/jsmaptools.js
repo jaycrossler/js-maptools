@@ -43,7 +43,7 @@
             is_in_us = gju.pointInPolygon(point_object,us_data);
 
         } else {
-            //Other libraries not loaded, so use a simple square lookup
+            //Other libraries not loaded, so use a simple rectangle lookup
             var top = 49.3457868;
             var left = -124.7844079;
             var right = -66.9513812;
@@ -356,7 +356,7 @@
         return {lat: latitude, lon: longitude};
 	};
 
-    _m.latLongToUsng = function (lat, lon, precision) {
+    _m.latLongToUsng = function (lat, lon, precision, precisionOfMouseOver) {
         var FOURTHPI    = Math.PI / 4;
         var DEG_2_RAD   = Math.PI / 180;
         var RAD_2_DEG   = 180.0 / Math.PI;
@@ -375,7 +375,7 @@
         }
         // else NAD27 datum is assumed
         else {
-          EQUATORIAL_RADIUS = 6378206.4  // Clarke 1866 ellipsoid (meters)
+          EQUATORIAL_RADIUS = 6378206.4;  // Clarke 1866 ellipsoid (meters)
           ECC_SQUARED = 0.006768658;
         }
         var ECC_PRIME_SQUARED = ECC_SQUARED / (1 - ECC_SQUARED);
@@ -727,21 +727,30 @@
         USNG += USNGNorthing;
 
         var coords = {usngString:USNG, northing:UTMNorthing, easting:UTMEasting, zoneNumber:zoneNumber, hemisphere:hemisphere};
+
         var reverse_coords = _m.utmToLatLong(coords.easting, coords.northing, coords.zoneNumber, coords.hemisphere);
         coords.reverseLat = reverse_coords.lat;
         coords.reverseLon = reverse_coords.lon;
 
-        var box_size = 1000;
-        var e = parseInt(coords.easting / box_size) * box_size;
-        var n = parseInt(coords.northing / box_size) * box_size
-        var tl = _m.utmToLatLong(e, n, coords.zoneNumber, coords.hemisphere);
-        var tr = _m.utmToLatLong(e, n+box_size, coords.zoneNumber, coords.hemisphere);
-        var br = _m.utmToLatLong(e+box_size, n+box_size, coords.zoneNumber, coords.hemisphere);
-        var bl = _m.utmToLatLong(e+box_size, n, coords.zoneNumber, coords.hemisphere);
-        coords.mgrs_bounds = {tl:tl, tr:tr, br:br, bl:bl};
+        coords.mgrs_bounds = _m.MGRSBoundsFromUTM(coords.easting, coords.northing, coords.zoneNumber, coords.hemisphere, precisionOfMouseOver || precision);
 
         return coords;
     };
+
+    _m.MGRSBoundsFromUTM = function (easting, northing, zoneNumber, hemisphere, precision) {
+
+        var box_size = precision ? Math.pow(10,precision) : 1000; // TODO: precision might not be the same as otherwise used
+        var e = parseInt(easting / box_size) * box_size;
+        var n = parseInt(northing / box_size) * box_size;
+        var tl = _m.utmToLatLong(e, n, zoneNumber, hemisphere);
+        var tr = _m.utmToLatLong(e, n+box_size, zoneNumber, hemisphere);
+        var br = _m.utmToLatLong(e+box_size, n+box_size, zoneNumber, hemisphere);
+        var bl = _m.utmToLatLong(e+box_size, n, zoneNumber, hemisphere);
+
+        //TODO: Doesn't handle split cells
+        return {tl:tl, tr:tr, br:br, bl:bl};
+    };
+
 
     _m.latLongToMgrs = function (lat, lon, precision, output) {
         /*
@@ -759,7 +768,7 @@
          * @return String of the format- DDL LL DDDDD DDDDD (5-digit precision)
          */
         var mgrs,
-            usngCoords = _m.latLongToUsng(lat, lon, precision, output);
+            usngCoords = _m.latLongToUsng(lat, lon, precision, precision);
         var usng = usngCoords.usngString;
 
         if (typeof usng === 'string') {
@@ -1072,8 +1081,8 @@
 
 
     _m.locationInfoString = function(options) {
-//        text = maptools.locationInfoString({lat:lat, lng:lng, zoom:zoom, separator:"<br/>", boldTitles:true});
-        //TODO: Implement Bold Titles
+//      Example usage:
+//      text = maptools.locationInfoString({lat:lat, lng:lng, zoom:zoom, separator:"<br/>", boldTitles:true, overPrecision:4});
 
         function boldify(text){
             if (options.boldTitles){
@@ -1100,8 +1109,10 @@
         output.in_bounds_world = _m.inWorldBounds(lat, lng);
 
         var ngText = '';
-        output.usngCoords = _m.latLongToUsng(lat, lng, 5);
+        output.usngCoords = _m.latLongToUsng(lat, lng, 5, options.overPrecision || 4);
         var usngText = output.usngCoords.usngString;
+        textArray.push(boldify("Easting: ") + output.usngCoords.easting.toFixed(2));
+        textArray.push(boldify("Northing: ") + output.usngCoords.northing.toFixed(2));
 
         if (output.in_bounds_us) {
             ngText += boldify("USNG: ")+usngText;

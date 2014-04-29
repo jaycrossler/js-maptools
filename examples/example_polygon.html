@@ -6,6 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="../frameworks/leaflet/leaflet.css" />
 	<link rel="stylesheet" href="../frameworks/leaflet.draw/Leaflet.draw.css" />
+	<link rel="stylesheet" href="../frameworks/leaflet.OSMGeocoder/Control.OSMGeocoder.css" />
 
     <style>
         body {
@@ -38,6 +39,7 @@
 
 	<script src="../frameworks/leaflet/leaflet.js"></script>
 	<script src="../frameworks/leaflet.draw/Leaflet.draw.js"></script>
+	<script src="../frameworks/leaflet.OSMGeocoder/Control.OSMGeocoder.js"></script>
 
 	<script src="../frameworks/leaflet.draw/edit/handler/Edit.Poly.js"></script>
 	<script src="../frameworks/leaflet.draw/edit/handler/Edit.SimpleShape.js"></script>
@@ -67,7 +69,7 @@
 	<script src="../frameworks/leaflet.draw/edit/handler/EditToolbar.Edit.js"></script>
 	<script src="../frameworks/leaflet.draw/edit/handler/EditToolbar.Delete.js"></script>
     
-	<!--<script src="../frameworks/geojson-js-utils/geojson-utils.js"></script>-->
+	<script src="../frameworks/geojson-js-utils/geojson-utils.js"></script>
 	<script src="../scripts/jsmaptools.js"></script>
 	<script src="../scripts/jsmaptools_polygons.js"></script>
 	<script>
@@ -81,6 +83,7 @@
             map_example.add_map_layers(map);
             //map_example.add_sample_overlays(map);
             map_example.add_info_box(map);
+            map_example.add_geocoder(map);
         };
         //=======================================================
         map_example.add_map_layers = function(map){
@@ -124,11 +127,9 @@
             L.drawLocal.draw.toolbar.buttons.polygon = 'Draw an MGRS polygon!';
 
             var drawControl = new L.Control.Draw({
-                position: 'topright',
+                position: 'topleft',
                 draw: {
-                    polyline: {
-                        metric: true
-                    },
+                    polyline: false,
                     polygon: {
                         allowIntersection: false,
                         showArea: true,
@@ -140,6 +141,7 @@
                             color: '#bada55'
                         }
                     },
+                    rectangle: false,
                     circle: {
                         shapeOptions: {
                             color: '#662d91'
@@ -158,9 +160,11 @@
                 var type = e.layerType,
                     layer = e.layer;
 
-                if (type === 'marker') {
-                    layer.bindPopup('A popup!');
-                }
+                var c = JSON.stringify(layer.toGeoJSON());
+                console.log(c);
+
+                var poly_points = layer._latlngs;
+
 
                 drawnItems.addLayer(layer);
             });
@@ -212,10 +216,10 @@
             };
 
             info.update = function (latlng) {
-                var location_text = map_example.convert_ll_to_string(latlng, map.zoom, map);
+                var location_text = map_example.convert_ll_to_string(latlng, map._zoom, map);
 
                 this._div.innerHTML = '<h4>Location</h4>' +  (location_text ?
-                    '<b>' + location_text + '</b>'
+                    location_text
                     : 'Hover to see location info');
             };
 
@@ -224,8 +228,27 @@
             }
             map.on('mousemove', onMapHover);
 
-
             info.addTo(map);
+        };
+        map_example.add_geocoder = function(map){
+
+            var options = {
+                collapsed: false, /* Whether its collapsed or not */
+                position: 'bottomright', /* The position of the control */
+                text: 'Locate', /* The text of the submit button */
+                bounds: null, /* a L.LatLngBounds object to limit the results to */
+                email: null, /* an email string with a contact to provide to Nominatim. Useful if you are doing lots of queries */
+                callback: function (results) {
+                        var bbox = results[0].boundingbox,
+                            first = new L.LatLng(bbox[0], bbox[2]),
+                            second = new L.LatLng(bbox[1], bbox[3]),
+                            bounds = new L.LatLngBounds([first, second]);
+                        this._map.fitBounds(bounds);
+                }
+            };
+            var osmGeocoder = new L.Control.OSMGeocoder(options);
+            map.addControl(osmGeocoder);
+
         };
         //=======================================================
         var polygon;
@@ -238,7 +261,11 @@
 
                 //If MapTools library is loaded
                 if (typeof maptools!="undefined" && maptools.inUSBounds) {
-                    var point_data = maptools.locationInfoString({lat:lat, lng:lng, zoom:zoom, separator:"<br/>", boldTitles:true});
+                    var grid_zoom = (zoom > 12) ? 3 :
+                            (zoom > 7) ? 4 :
+                            5;
+
+                    var point_data = maptools.locationInfoString({lat:lat, lng:lng, zoom:zoom, separator:"<br/>", boldTitles:true, overPrecision:grid_zoom});
                     text = point_data.toString();
 
                     //Draw the USNG cell, and remove an old one if it exists

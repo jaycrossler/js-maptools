@@ -5,6 +5,7 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="../frameworks/leaflet/leaflet.css" />
+	<link rel="stylesheet" href="../frameworks/leaflet.OSMGeocoder/Control.OSMGeocoder.css" />
     <style>
         body {
             padding: 0;
@@ -35,7 +36,7 @@
 
 	<script src="../frameworks/jquery/jquery-1.8.0.min.js"></script>
 	<script src="../frameworks/leaflet/leaflet.js"></script>
-	<!--<script src="../frameworks/clipper/clipper.js"></script>-->
+	<script src="../frameworks/leaflet.OSMGeocoder/Control.OSMGeocoder.js"></script>
 	<script src="../frameworks/geojson-js-utils/geojson-utils.js"></script>
 	<script src="../scripts/jsmaptools.js"></script>
 	<script src="../scripts/jsmaptools_polygons.js"></script>
@@ -50,6 +51,7 @@
             map_example.add_map_layers(map);
             //map_example.add_sample_overlays(map);
             map_example.add_info_box(map);
+            map_example.add_geocoder(map);
         };
         //=======================================================
         map_example.add_map_layers = function(map){
@@ -159,7 +161,7 @@
             };
 
             info.update = function (latlng) {
-                var location_text = map_example.convert_ll_to_string(latlng, map.zoom, map);
+                var location_text = map_example.convert_ll_to_string(latlng, map._zoom, map);
 
                 this._div.innerHTML = '<h4>Location</h4>' +  (location_text ?
                     location_text
@@ -171,8 +173,27 @@
             }
             map.on('mousemove', onMapHover);
 
-
             info.addTo(map);
+        };
+        map_example.add_geocoder = function(map){
+
+            var options = {
+                collapsed: false, /* Whether its collapsed or not */
+                position: 'bottomright', /* The position of the control */
+                text: 'Locate', /* The text of the submit button */
+                bounds: null, /* a L.LatLngBounds object to limit the results to */
+                email: null, /* an email string with a contact to provide to Nominatim. Useful if you are doing lots of queries */
+                callback: function (results) {
+                        var bbox = results[0].boundingbox,
+                            first = new L.LatLng(bbox[0], bbox[2]),
+                            second = new L.LatLng(bbox[1], bbox[3]),
+                            bounds = new L.LatLngBounds([first, second]);
+                        this._map.fitBounds(bounds);
+                }
+            };
+            var osmGeocoder = new L.Control.OSMGeocoder(options);
+            map.addControl(osmGeocoder);
+
         };
         //=======================================================
         var polygon;
@@ -185,7 +206,11 @@
 
                 //If MapTools library is loaded
                 if (typeof maptools!="undefined" && maptools.inUSBounds) {
-                    var point_data = maptools.locationInfoString({lat:lat, lng:lng, zoom:zoom, separator:"<br/>", boldTitles:true});
+                    var grid_zoom = (zoom > 12) ? 3 :
+                            (zoom > 7) ? 4 :
+                            5;
+
+                    var point_data = maptools.locationInfoString({lat:lat, lng:lng, zoom:zoom, separator:"<br/>", boldTitles:true, overPrecision:grid_zoom});
                     text = point_data.toString();
 
                     //Draw the USNG cell, and remove an old one if it exists
