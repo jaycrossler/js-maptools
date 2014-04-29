@@ -33,6 +33,7 @@
 <body>
 	<div id="map"></div>
 
+	<script src="../frameworks/jquery/jquery-1.8.0.min.js"></script>
 	<script src="../frameworks/leaflet/leaflet.js"></script>
 	<!--<script src="../frameworks/clipper/clipper.js"></script>-->
 	<script src="../frameworks/geojson-js-utils/geojson-utils.js"></script>
@@ -80,11 +81,54 @@
                 attribution: "Weather data © 2012 IEM Nexrad"
             }).addTo(map);
 
+            map_example.add_dynamic_data(map);
+
             //Add Map layer chooser
             L.control.layers({"OSM":baseMapOSM, "Blended Base Maps":baseMaps}, {"USNG/MGRS Cells":overlayUsng, "Weather":overlaysWeather}).addTo(map);
 
         };
         //=======================================================
+        map_example.add_dynamic_data = function(map){
+            var url = "http://dev.femadata.com/arcgis/rest/services/CAPImages/MapServer/0/query?where=EventID%3D6&text=&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=true&maxAllowableOffset=&geometryPrecision=&outSR=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&returnDistinctValues=false&f=pjson";
+            //http://dev.femadata.com/arcgis/rest/services/CAPImages/MapServer/0/query?where=EventID%3D6&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&returnGeometry=true&outFields=*&f=pjson
+            $.getJSON(url,null,function(result){
+                console.log(url);
+                console.log(result);
+
+                var jsonObjects = [];
+
+                $(result.features).each(function(){
+                    var feature = $(this)[0];
+                    var json = {
+                        type: "Feature",
+                        properties: {
+                            name: feature.attributes.ID + " - " + feature.attributes.DaysOld + " days old",
+                            image: feature.attributes.ImageURL,
+                            thumbnail: feature.attributes.ThumbnailURL,
+                            popupContent: "<a href='"+feature.attributes.ImageURL+"'><img style='width:256px' src='"+feature.attributes.ThumbnailURL+"' /></a>"
+                        },
+                        geometry: {
+                            type: "Point",
+                            coordinates: [feature.geometry.x, feature.geometry.y]
+                        }
+                    };
+                    jsonObjects.push(json);
+                });
+
+                function onEachFeature(feature, layer) {
+                    // does this feature have a property named popupContent?
+                    if (feature.properties && feature.properties.popupContent) {
+                        layer.bindPopup(feature.properties.popupContent);
+                    }
+                }
+
+
+                L.geoJson(jsonObjects, {
+                    onEachFeature: onEachFeature
+                }).addTo(map);
+
+            });
+        };
         map_example.add_sample_overlays = function(map){
             //Add some markers for testing
             L.marker([51.5, -0.09]).addTo(map)
@@ -118,7 +162,7 @@
                 var location_text = map_example.convert_ll_to_string(latlng, map.zoom, map);
 
                 this._div.innerHTML = '<h4>Location</h4>' +  (location_text ?
-                    '<b>' + location_text + '</b>'
+                    location_text
                     : 'Hover to see location info');
             };
 
@@ -133,9 +177,7 @@
         //=======================================================
         var polygon;
         map_example.convert_ll_to_string=function(latlng, zoom, map){
-            //TODO: Move most of this to maptools
-            var textArray = [];
-            var text, lat, lng, in_bounds_us, in_bounds_world, state_hover, country_hover;
+            var text, lat, lng;
 
             if (latlng) {
                 lat = latlng.lat;
@@ -143,21 +185,12 @@
 
                 //If MapTools library is loaded
                 if (typeof maptools!="undefined" && maptools.inUSBounds) {
-                    lng = maptools.correctDegree(lng);
+                    var point_data = maptools.locationInfoString({lat:lat, lng:lng, zoom:zoom, separator:"<br/>", boldTitles:true});
+                    text = point_data.toString();
 
-                    textArray.push("Lat: " + lat.toFixed(6));
-                    textArray.push("Lon: " + lng.toFixed(6));
-                    if (zoom) textArray.push("Zoom: " + zoom);
-
-                    in_bounds_us = maptools.inUSBounds(lat, lng);
-                    in_bounds_world = maptools.inWorldBounds(lat, lng);
-
-                    var ngText = '';
-                    var usngCoords = maptools.latLongToUsng(lat, lng, 5);
-                    var usngText = usngCoords.usngString;
-
-                    var box = usngCoords.mgrs_bounds;
-                    if (polygon) map.removeLayer(polygon);
+                    //Draw the USNG cell, and remove an old one if it exists
+                    var box = point_data.usngCoords.mgrs_bounds;
+                    if (map && polygon) map.removeLayer(polygon);
                     polygon = L.polygon([
                         [box.tl.lat, box.tl.lon],
                         [box.tr.lat, box.tr.lon],
@@ -165,42 +198,17 @@
                         [box.bl.lat, box.bl.lon]
                     ]).addTo(map);
 
-
-                    if (in_bounds_us) {
-                        ngText += "USNG: "+usngText;
-                        state_hover = maptools.inWhichUSStateBounds(lat, lng)
-                    } else {
-                        ngText += "MGRS: "+usngText;
-                    }
-                    country_hover = maptools.inWhichCountryBounds(lat, lng);
-
-                    if (ngText && ngText.indexOf && ngText.indexOf('NaN')== -1) {
-                        textArray.push(ngText);
-                    }
-
-                    textArray.push("in_bounds_world: " + in_bounds_world);
-                    if (country_hover) {
-                        textArray.push("Country: " + country_hover.name);
-                        textArray.push("Country Code: " + country_hover.abbr);
-                        var code = maptools.twoLetterCountryCode(country_hover.name);
-                        if (code && code!="??") textArray.push("Country 2-letter: " + code);
-
-                        textArray.push("Country Pop: " + country_hover.pop_est);
-                        textArray.push("Country GDP: " + country_hover.gdp_md_est);
-                    }
-                    textArray.push("in_bounds_us: " + in_bounds_us);
-                    if (state_hover) {
-                        textArray.push("State Name: " + state_hover.name);
-                        textArray.push("Population: " + state_hover.pop_density+" people / mi<sup>2</sup>");
-                    }
-
                 } else {
-                    textArray.push("Lat: " + lat.toFixed(6));
-                    textArray.push("Lon: " + lng.toFixed(6));
-                    if (zoom) textArray.push("Zoom: " + zoom);
+                    if (lat && lng) {
+                        var textArray = [];
+                        textArray.push("Lat: " + lat.toFixed(6));
+                        textArray.push("Lon: " + lng.toFixed(6));
+                        if (zoom) textArray.push("Zoom: " + zoom);
+                        text = textArray.join("<br/>");
+                    } else {
+                        text = "";
+                    }
                 }
-
-                text = textArray.join("<br/>");
 
             } else {
                 text = latlng ? latlng.toString() : "";

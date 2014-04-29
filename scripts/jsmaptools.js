@@ -562,14 +562,15 @@
             // Constrain reporting USNG coords to the latitude range [80S .. 84N]
             /////////////////
             if (lat > 84.0 || lat < -80.0){
-                return(UNDEFINED_STR);
+                console.log('Error - LLtoUTM, invalid input. Latitude out of range -80 to +84')
+                return([]);
             }
             //////////////////////
 
 
             // sanity check on input - turned off when testing with Generic Viewer
             if (lon > 360 || lon < -180 || lat > 90 || lat < -90) {
-                console.log('usng.js, LLtoUTM, invalid input. lat: ' + lat.toFixed(4) + ' lon: ' + lon.toFixed(4));
+                console.log('Error - LLtoUTM, invalid input. lat: ' + lat.toFixed(4) + ' lon: ' + lon.toFixed(4));
             }
 
 
@@ -1057,6 +1058,80 @@
         }
         return countryData;
     };
+
+
+    _m.locationInfoString = function(options) {
+//        text = maptools.locationInfoString({lat:lat, lng:lng, zoom:zoom, separator:"<br/>", boldTitles:true});
+        //TODO: Implement Bold Titles
+
+        function boldify(text){
+            if (options.boldTitles){
+                text = "<b>"+text+"</b>";
+            }
+            return text;
+        }
+
+        var textArray = [];
+        var output = {};
+        var lat = options.lat;
+        var lng = options.lng;
+        lng = _m.correctDegree(lng);
+
+        output.lat = lat.toFixed(6);
+        output.lng = lng.toFixed(6);
+        output.zoom = options.zoom || false;
+
+        textArray.push(boldify("Lat: ") + lat.toFixed(6));
+        textArray.push(boldify("Lon: ") + lng.toFixed(6));
+        if (output.zoom) textArray.push(boldify("Zoom: ") + output.zoom);
+
+        output.in_bounds_us = _m.inUSBounds(lat, lng);
+        output.in_bounds_world = _m.inWorldBounds(lat, lng);
+
+        var ngText = '';
+        output.usngCoords = _m.latLongToUsng(lat, lng, 5);
+        var usngText = output.usngCoords.usngString;
+
+        if (output.in_bounds_us) {
+            ngText += boldify("USNG: ")+usngText;
+            output.state = _m.inWhichUSStateBounds(lat, lng)
+        } else {
+            ngText += boldify("MGRS: ")+usngText;
+        }
+        output.country = _m.inWhichCountryBounds(lat, lng);
+
+        if (ngText && ngText.indexOf && ngText.indexOf('NaN')== -1) {
+            textArray.push(ngText);
+        }
+
+        textArray.push(boldify("in_bounds_world: ") + output.in_bounds_world);
+        if (output.country) {
+            textArray.push(boldify("Country: ") + output.country.name);
+            textArray.push(boldify("Country Code: ") + output.country.abbr);
+            var code = _m.twoLetterCountryCode(output.country.name);
+            if (code && code!="??") textArray.push(boldify("Country 2-letter: ") + code);
+
+            if (output.country.pop_est) {
+                textArray.push(boldify("Country Pop: ") + output.country.pop_est);
+            }
+            if (output.country.gdp_md_est) {
+                textArray.push(boldify("Country GDP: ") + output.country.gdp_md_est);
+            }
+        }
+        textArray.push(boldify("in_bounds_us: ") + output.in_bounds_us);
+        if (output.state) {
+            textArray.push(boldify("State Name: ") + output.state.name);
+            if (output.state.pop_density){
+                textArray.push(boldify("Population: ") + output.state.pop_density + " people / mi<sup>2</sup>");
+            }
+        }
+
+        output.toString = function(){
+            return textArray.join(options.separator || "<br/>");
+        };
+        return output;
+    };
+
 
     //================
     if (global.maptools) {
