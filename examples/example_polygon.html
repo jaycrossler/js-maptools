@@ -5,6 +5,8 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="../frameworks/leaflet/leaflet.css" />
+	<link rel="stylesheet" href="../frameworks/leaflet.draw/Leaflet.draw.css" />
+
     <style>
         body {
             padding: 0;
@@ -50,6 +52,12 @@
 	<script src="../frameworks/leaflet.draw/draw/handler/Draw.Circle.js"></script>
 	<script src="../frameworks/leaflet.draw/draw/handler/Draw.Marker.js"></script>
 
+    <script src="../frameworks/leaflet.draw/ext/LatLngUtil.js"></script>
+	<script src="../frameworks/leaflet.draw/ext/GeometryUtil.js"></script>
+	<script src="../frameworks/leaflet.draw/ext/LineUtil.Intersect.js"></script>
+	<script src="../frameworks/leaflet.draw/ext/Polyline.Intersect.js"></script>
+	<script src="../frameworks/leaflet.draw/ext/Polygon.Intersect.js"></script>
+
     <script src="../frameworks/leaflet.draw/Control.Draw.js"></script>
 	<script src="../frameworks/leaflet.draw/Tooltip.js"></script>
 	<script src="../frameworks/leaflet.draw/Toolbar.js"></script>
@@ -59,7 +67,7 @@
 	<script src="../frameworks/leaflet.draw/edit/handler/EditToolbar.Edit.js"></script>
 	<script src="../frameworks/leaflet.draw/edit/handler/EditToolbar.Delete.js"></script>
     
-	<script src="../frameworks/geojson-js-utils/geojson-utils.js"></script>
+	<!--<script src="../frameworks/geojson-js-utils/geojson-utils.js"></script>-->
 	<script src="../scripts/jsmaptools.js"></script>
 	<script src="../scripts/jsmaptools_polygons.js"></script>
 	<script>
@@ -113,7 +121,7 @@
             map.addLayer(drawnItems);
 
             // Set the title to show on the polygon button
-            L.drawLocal.draw.toolbar.buttons.polygon = 'Draw a sexy polygon!';
+            L.drawLocal.draw.toolbar.buttons.polygon = 'Draw an MGRS polygon!';
 
             var drawControl = new L.Control.Draw({
                 position: 'topright',
