@@ -69,7 +69,7 @@
 	<script src="../frameworks/leaflet.draw/edit/handler/EditToolbar.Edit.js"></script>
 	<script src="../frameworks/leaflet.draw/edit/handler/EditToolbar.Delete.js"></script>
     
-	<script src="../frameworks/geojson-js-utils/geojson-utils.js"></script>
+	<script src="../../geoq/geoq/core/static/core/js/geojson-js-utils/geojson-utils.js"></script>
 	<script src="../scripts/jsmaptools.js"></script>
 	<script src="../scripts/jsmaptools_polygons.js"></script>
 	<script>
@@ -247,8 +247,10 @@
                 }
             };
             var osmGeocoder = new L.Control.OSMGeocoder(options);
+
             map.addControl(osmGeocoder);
 
+            $('form.leaflet-control-geocoder-form').css('margin','0px');
         };
         //=======================================================
         var polygon;
